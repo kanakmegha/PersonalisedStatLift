@@ -35,12 +35,12 @@ interface AppContextType {
   resetStats: () => void;
 }
 
-const STORAGE_KEY = '@statlift_user_data';
+const STORAGE_KEY = '@statlift_user_data_v2'; // Changed key to force-refresh old data
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  // 1. Initial Personal Stats
+  // 1. Initial Personal Stats - All set to 0 for a fresh start
   const initialData: UserData = {
     level: 1,
     currentXP: 0,
@@ -49,7 +49,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     streakDays: 0,
     totalWorkouts: 0,
     overallProgress: 0,
-    stats: { strength: 10, endurance: 10, discipline: 10, mobility: 10 },
+    stats: { strength: 0, endurance: 0, discipline: 0, mobility: 0 },
     muscleGroups: { chest: 0, shoulders: 0, back: 0, legs: 0, arms: 0 },
     unlockedWorkouts: ['chest-press', 'shoulder-press'],
   };
@@ -88,14 +88,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     { id: 'leg-press', name: 'Leg Press', muscleGroup: 'Legs', difficulty: 'Beginner', unlocked: true, sets: 3, reps: 12, xpReward: 20 },
   ]);
 
-  // --- ADDED THIS ARRAY TO FIX YOUR ERROR ---
-  const proofMessages = [
-    'Your shoulders improved 2% this week',
-    "You're lifting 15% more than when you started",
-    'Discipline stat increased — consistency streak growing',
-    'Your form is getting more consistent',
-    'Chest strength up 8% from last month',
-  ];
+  // 4. Dynamic Proof Messages - Generates messages based on real stats
+  const getDynamicMessages = () => {
+    if (userData.totalWorkouts === 0) {
+      return ["Log your first workout to see progress proof!"];
+    }
+
+    const groups = Object.entries(userData.muscleGroups);
+    const strongest = groups.reduce((a, b) => (a[1] > b[1] ? a : b));
+
+    return [
+      `Your ${strongest[0]} strength has increased by ${strongest[1]}%`,
+      `Discipline: ${userData.stats.discipline} — consistency is building`,
+      `You've completed ${userData.totalWorkouts} total workouts`,
+      `StatLift Analytics: ${userData.overallProgress}% goal completion`,
+    ];
+  };
+
+  const proofMessages = getDynamicMessages();
 
   const addXP = (amount: number) => {
     setUserData((prev) => {
@@ -106,6 +116,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           level: prev.level + 1,
           currentXP: newXP - prev.xpToNextLevel,
           xpToNextLevel: Math.floor(prev.xpToNextLevel * 1.3),
+          title: prev.level + 1 >= 5 ? 'Adept' : 'Beginner',
         };
       }
       return { ...prev, currentXP: newXP };
@@ -116,18 +127,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const workout = workouts.find(w => w.id === workoutId);
     if (workout) {
       addXP(workout.xpReward);
+      
       setUserData(prev => ({
         ...prev,
         totalWorkouts: prev.totalWorkouts + 1,
+        streakDays: prev.streakDays + 1,
+        stats: {
+          ...prev.stats,
+          strength: prev.stats.strength + 2,
+          discipline: prev.stats.discipline + 3,
+        },
         muscleGroups: {
           ...prev.muscleGroups,
           [workout.muscleGroup.toLowerCase()]: (prev.muscleGroups[workout.muscleGroup.toLowerCase() as keyof typeof prev.muscleGroups] || 0) + 5
-        }
+        },
+        overallProgress: Math.min(prev.overallProgress + 1, 100),
       }));
     }
   };
 
-  const resetStats = () => setUserData(initialData);
+  const resetStats = () => {
+    AsyncStorage.removeItem(STORAGE_KEY);
+    setUserData(initialData);
+  };
 
   if (isLoading) return null;
 
@@ -136,7 +158,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         userData,
         workouts,
-        proofMessages, // Now this works because we defined it above!
+        proofMessages,
         addXP,
         completeWorkout,
         resetStats,
