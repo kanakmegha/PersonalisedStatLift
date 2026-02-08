@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { Flame } from 'lucide-react-native';
+// Fix for Vercel Web compatibility
+import { Flame } from 'lucide-react';
 
 interface StreakCardProps {
   streakDays: number;
@@ -7,7 +8,10 @@ interface StreakCardProps {
 
 export function StreakCard({ streakDays }: StreakCardProps) {
   const weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  const completedDays = [true, true, true, true, true, true, false];
+  
+  // LOGIC: Create a real array based on your actual streak
+  // This lights up circles from left to right based on your streak count
+  const completedDays = weekDays.map((_, index) => index < streakDays);
 
   return (
     <View style={styles.container}>
@@ -16,8 +20,12 @@ export function StreakCard({ streakDays }: StreakCardProps) {
           <Flame size={24} color="#ff6b00" fill="#ff6b00" strokeWidth={2} />
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.streakNumber}>{streakDays}-day streak</Text>
-          <Text style={styles.subtitle}>Keep it going!</Text>
+          <Text style={styles.streakNumber}>
+            {streakDays === 0 ? 'Start your streak!' : `${streakDays}-day streak`}
+          </Text>
+          <Text style={styles.subtitle}>
+            {streakDays === 0 ? 'Complete a workout today' : 'Keep it going!'}
+          </Text>
         </View>
       </View>
 
