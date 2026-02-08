@@ -6,7 +6,8 @@ import Animated, {
   withTiming,
   withDelay,
 } from 'react-native-reanimated';
-import { Sparkles } from 'lucide-react-native';
+// Web-safe icon import
+import { Sparkles } from 'lucide-react';
 
 interface ProofCardProps {
   message: string;
@@ -17,8 +18,13 @@ export function ProofCard({ message }: ProofCardProps) {
   const translateY = useSharedValue(20);
 
   useEffect(() => {
-    opacity.value = withDelay(300, withTiming(1, { duration: 600 }));
-    translateY.value = withDelay(300, withTiming(0, { duration: 600 }));
+    // Reset values first
+    opacity.value = 0;
+    translateY.value = 20;
+    
+    // Animate in
+    opacity.value = withDelay(100, withTiming(1, { duration: 600 }));
+    translateY.value = withDelay(100, withTiming(0, { duration: 600 }));
   }, [message]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -27,7 +33,8 @@ export function ProofCard({ message }: ProofCardProps) {
   }));
 
   return (
-    <Animated.View style={[styles.container, animatedStyle]}>
+    /* We add a key here so the component re-mounts/re-animates when the message changes */
+    <Animated.View key={message} style={[styles.container, animatedStyle]}>
       <View style={styles.iconContainer}>
         <Sparkles size={24} color="#00ff88" strokeWidth={2} />
       </View>
