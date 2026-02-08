@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// --- Interfaces ---
 interface UserData {
   level: number;
   currentXP: number;
@@ -8,19 +10,8 @@ interface UserData {
   streakDays: number;
   totalWorkouts: number;
   overallProgress: number;
-  stats: {
-    strength: number;
-    endurance: number;
-    discipline: number;
-    mobility: number;
-  };
-  muscleGroups: {
-    chest: number;
-    shoulders: number;
-    back: number;
-    legs: number;
-    arms: number;
-  };
+  stats: { strength: number; endurance: number; discipline: number; mobility: number; };
+  muscleGroups: { chest: number; shoulders: number; back: number; legs: number; arms: number; };
   unlockedWorkouts: string[];
 }
 
@@ -30,164 +21,74 @@ interface Workout {
   muscleGroup: string;
   difficulty: string;
   unlocked: boolean;
-  unlockCondition?: string;
   sets: number;
   reps: number;
   xpReward: number;
 }
 
-interface Duel {
-  id: string;
-  challenge: string;
-  opponentName: string;
-  opponentAvatar: string;
-  yourProgress: number;
-  opponentProgress: number;
-  timeRemaining: string;
-  goal: number;
-}
-
 interface AppContextType {
   userData: UserData;
   workouts: Workout[];
-  duels: Duel[];
-  proofMessages: string[];
+  proofMessages: string[]; 
   addXP: (amount: number) => void;
-  completeSet: (workoutId: string) => void;
   completeWorkout: (workoutId: string) => void;
+  resetStats: () => void;
 }
+
+const STORAGE_KEY = '@statlift_user_data';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [userData, setUserData] = useState<UserData>({
-    level: 6,
-    currentXP: 420,
-    xpToNextLevel: 600,
-    title: 'Rookie Lifter',
-    streakDays: 6,
-    totalWorkouts: 42,
-    overallProgress: 38,
-    stats: {
-      strength: 45,
-      endurance: 32,
-      discipline: 68,
-      mobility: 28,
-    },
-    muscleGroups: {
-      chest: 42,
-      shoulders: 38,
-      back: 35,
-      legs: 41,
-      arms: 33,
-    },
-    unlockedWorkouts: [
-      'chest-press',
-      'shoulder-press',
-      'lat-pulldown',
-      'leg-press',
-      'bicep-curl',
-    ],
-  });
+  // 1. Initial Personal Stats
+  const initialData: UserData = {
+    level: 1,
+    currentXP: 0,
+    xpToNextLevel: 100,
+    title: 'Beginner',
+    streakDays: 0,
+    totalWorkouts: 0,
+    overallProgress: 0,
+    stats: { strength: 10, endurance: 10, discipline: 10, mobility: 10 },
+    muscleGroups: { chest: 0, shoulders: 0, back: 0, legs: 0, arms: 0 },
+    unlockedWorkouts: ['chest-press', 'shoulder-press'],
+  };
+
+  const [userData, setUserData] = useState<UserData>(initialData);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 2. Load Data on Startup
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const savedData = await AsyncStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+          setUserData(JSON.parse(savedData));
+        }
+      } catch (e) {
+        console.error("Failed to load data", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  // 3. Save Data whenever userData changes
+  useEffect(() => {
+    if (!isLoading) {
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+    }
+  }, [userData, isLoading]);
 
   const [workouts] = useState<Workout[]>([
-    {
-      id: 'chest-press',
-      name: 'Chest Press',
-      muscleGroup: 'Chest',
-      difficulty: 'Beginner',
-      unlocked: true,
-      sets: 3,
-      reps: 10,
-      xpReward: 15,
-    },
-    {
-      id: 'incline-press',
-      name: 'Incline Press',
-      muscleGroup: 'Chest',
-      difficulty: 'Beginner',
-      unlocked: false,
-      unlockCondition: 'Complete Chest Press 3 times',
-      sets: 3,
-      reps: 10,
-      xpReward: 20,
-    },
-    {
-      id: 'shoulder-press',
-      name: 'Shoulder Press',
-      muscleGroup: 'Shoulders',
-      difficulty: 'Beginner',
-      unlocked: true,
-      sets: 3,
-      reps: 10,
-      xpReward: 15,
-    },
-    {
-      id: 'lateral-raise',
-      name: 'Lateral Raise',
-      muscleGroup: 'Shoulders',
-      difficulty: 'Beginner',
-      unlocked: false,
-      unlockCondition: 'Complete Shoulder Press 3 times',
-      sets: 3,
-      reps: 12,
-      xpReward: 18,
-    },
-    {
-      id: 'lat-pulldown',
-      name: 'Lat Pulldown',
-      muscleGroup: 'Back',
-      difficulty: 'Beginner',
-      unlocked: true,
-      sets: 3,
-      reps: 10,
-      xpReward: 15,
-    },
-    {
-      id: 'leg-press',
-      name: 'Leg Press',
-      muscleGroup: 'Legs',
-      difficulty: 'Beginner',
-      unlocked: true,
-      sets: 3,
-      reps: 12,
-      xpReward: 20,
-    },
-    {
-      id: 'bicep-curl',
-      name: 'Bicep Curl',
-      muscleGroup: 'Arms',
-      difficulty: 'Beginner',
-      unlocked: true,
-      sets: 3,
-      reps: 10,
-      xpReward: 12,
-    },
+    { id: 'chest-press', name: 'Chest Press', muscleGroup: 'Chest', difficulty: 'Beginner', unlocked: true, sets: 3, reps: 10, xpReward: 15 },
+    { id: 'shoulder-press', name: 'Shoulder Press', muscleGroup: 'Shoulders', difficulty: 'Beginner', unlocked: true, sets: 3, reps: 10, xpReward: 15 },
+    { id: 'lat-pulldown', name: 'Lat Pulldown', muscleGroup: 'Back', difficulty: 'Beginner', unlocked: true, sets: 3, reps: 10, xpReward: 15 },
+    { id: 'leg-press', name: 'Leg Press', muscleGroup: 'Legs', difficulty: 'Beginner', unlocked: true, sets: 3, reps: 12, xpReward: 20 },
   ]);
 
-  const [duels] = useState<Duel[]>([
-    {
-      id: '1',
-      challenge: '3 gym check-ins this week',
-      opponentName: 'Alex',
-      opponentAvatar: '💪',
-      yourProgress: 2,
-      opponentProgress: 1,
-      timeRemaining: '3 days',
-      goal: 3,
-    },
-    {
-      id: '2',
-      challenge: 'Log 5 workouts in 7 days',
-      opponentName: 'Jordan',
-      opponentAvatar: '🔥',
-      yourProgress: 3,
-      opponentProgress: 4,
-      timeRemaining: '2 days',
-      goal: 5,
-    },
-  ]);
-
+  // --- ADDED THIS ARRAY TO FIX YOUR ERROR ---
   const proofMessages = [
     'Your shoulders improved 2% this week',
     "You're lifting 15% more than when you started",
@@ -204,37 +105,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ...prev,
           level: prev.level + 1,
           currentXP: newXP - prev.xpToNextLevel,
-          xpToNextLevel: Math.floor(prev.xpToNextLevel * 1.2),
+          xpToNextLevel: Math.floor(prev.xpToNextLevel * 1.3),
         };
       }
       return { ...prev, currentXP: newXP };
     });
   };
 
-  const completeSet = (workoutId: string) => {
-    const workout = workouts.find((w) => w.id === workoutId);
+  const completeWorkout = (workoutId: string) => {
+    const workout = workouts.find(w => w.id === workoutId);
     if (workout) {
-      addXP(workout.xpReward / workout.sets);
+      addXP(workout.xpReward);
+      setUserData(prev => ({
+        ...prev,
+        totalWorkouts: prev.totalWorkouts + 1,
+        muscleGroups: {
+          ...prev.muscleGroups,
+          [workout.muscleGroup.toLowerCase()]: (prev.muscleGroups[workout.muscleGroup.toLowerCase() as keyof typeof prev.muscleGroups] || 0) + 5
+        }
+      }));
     }
   };
 
-  const completeWorkout = (workoutId: string) => {
-    setUserData((prev) => ({
-      ...prev,
-      totalWorkouts: prev.totalWorkouts + 1,
-    }));
-  };
+  const resetStats = () => setUserData(initialData);
+
+  if (isLoading) return null;
 
   return (
     <AppContext.Provider
       value={{
         userData,
         workouts,
-        duels,
-        proofMessages,
+        proofMessages, // Now this works because we defined it above!
         addXP,
-        completeSet,
         completeWorkout,
+        resetStats,
       }}>
       {children}
     </AppContext.Provider>
@@ -243,8 +148,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 export function useApp() {
   const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useApp must be used within AppProvider');
-  }
+  if (!context) throw new Error('useApp must be used within AppProvider');
   return context;
 }
