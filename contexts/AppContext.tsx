@@ -1,118 +1,110 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '@/lib/supabase';
 
-// --- Interfaces ---
 interface UserData {
+  id: string;
   level: number;
-  currentXP: number;
-  xpToNextLevel: number;
-  title: string;
-  streakDays: number;
-  totalWorkouts: number;
-  overallProgress: number;
-  stats: { strength: number; endurance: number; discipline: number; mobility: number; };
-  muscleGroups: { chest: number; shoulders: number; back: number; legs: number; arms: number; };
+  current_xp: number;
+  xp_to_next_level: number;
+  streak_days: number;
+  total_workouts: number;
+  stats: { strength: number; discipline: number; };
+  muscle_groups: { chest: number; back: number; legs: number; };
+  workout_history: string[];
 }
 
 interface Workout {
   id: string;
   name: string;
-  muscleGroup: string;
-  difficulty: string;
-  unlocked: boolean;
-  xpReward: number;
+  muscle_group: string;
+  xp_reward: number;
 }
 
-interface Duel {
-  id: string;
-  opponentName: string;
-  challenge: string;
-  aiProgress: number;
-  reward: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-}
-
-// Fixed: Added 'workouts' and 'duels' to the Type definition
 interface AppContextType {
-  userData: UserData;
+  userData: UserData | null;
   workouts: Workout[];
-  duels: Duel[];
-  proofMessages: string[]; 
-  completeWorkout: (workoutId: string) => void;
-  resetStats: () => void;
+  completeWorkout: (workoutId: string) => Promise<void>;
+  isLoading: boolean;
 }
-
-const STORAGE_KEY = '@statlift_v7_kanak_final'; 
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const initialData: UserData = {
-    level: 1,
-    currentXP: 0,
-    xpToNextLevel: 100,
-    title: 'Beginner',
-    streakDays: 0,
-    totalWorkouts: 0,
-    overallProgress: 0,
-    stats: { strength: 0, endurance: 0, discipline: 0, mobility: 0 }, 
-    muscleGroups: { chest: 0, shoulders: 0, back: 0, legs: 0, arms: 0 },
-  };
-
-  const [userData, setUserData] = useState<UserData>(initialData);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const [workouts] = useState<Workout[]>([
-    { id: 'w1', name: 'Chest Press', muscleGroup: 'Chest', difficulty: 'Beginner', unlocked: true, xpReward: 20 },
-    { id: 'w2', name: 'Shoulder Press', muscleGroup: 'Shoulders', difficulty: 'Beginner', unlocked: true, xpReward: 20 },
-    { id: 'w3', name: 'Squats', muscleGroup: 'Legs', difficulty: 'Beginner', unlocked: true, xpReward: 25 },
+    { id: 'w1', name: 'Chest Press', muscle_group: 'Chest', xp_reward: 20 },
+    { id: 'w2', name: 'Deadlift', muscle_group: 'Back', xp_reward: 30 },
   ]);
 
-  const [duels] = useState<Duel[]>([
-    { id: 'ai_1', opponentName: 'Titan AI', challenge: 'Reach 10% Strength', aiProgress: 10, reward: 'Bronze', difficulty: 'Easy' },
-  ]);
-
+  // Load Data from Supabase on Mount
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const saved = await AsyncStorage.getItem(STORAGE_KEY);
-        if (saved) setUserData(JSON.parse(saved));
-      } catch (e) { console.error(e); } finally { setIsLoading(false); }
-    };
-    loadData();
+    fetchUserData();
   }, []);
 
-  useEffect(() => {
-    if (!isLoading) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
-  }, [userData, isLoading]);
+  async function fetchUserData() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-  const completeWorkout = (workoutId: string) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (data) setUserData(data);
+    } catch (e) {
+      console.error("Fetch error:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const completeWorkout = async (workoutId: string) => {
+    if (!userData) return;
     const workout = workouts.find(w => w.id === workoutId);
     if (!workout) return;
 
-    setUserData(prev => ({
-      ...prev,
-      currentXP: prev.currentXP + workout.xpReward,
-      totalWorkouts: prev.totalWorkouts + 1,
-      stats: { ...prev.stats, strength: prev.stats.strength + 2, discipline: prev.stats.discipline + 3 },
-      muscleGroups: {
-        ...prev.muscleGroups,
-        [workout.muscleGroup.toLowerCase()]: (prev.muscleGroups[workout.muscleGroup.toLowerCase() as keyof typeof prev.muscleGroups] || 0) + 5
-      },
-      overallProgress: Math.min(prev.overallProgress + 2, 100)
-    }));
+    const today = new Date().toISOString().split('T')[0];
+
+    // 1. Logic for Streak and Stats
+    const isNewDay = !userData.workout_history.includes(today);
+    const updatedData = {
+      ...userData,
+      current_xp: userData.current_xp + workout.xp_reward,
+      total_workouts: userData.total_workouts + 1,
+      streak_days: isNewDay ? userData.streak_days + 1 : userData.streak_days,
+      workout_history: isNewDay ? [...userData.workout_history, today] : userData.workout_history,
+      stats: {
+        ...userData.stats,
+        strength: userData.stats.strength + 2,
+        discipline: userData.stats.discipline + 5
+      }
+    };
+
+    // 2. Optimistic UI update
+    setUserData(updatedData);
+
+    // 3. Database Sync (Parallel calls)
+    await Promise.all([
+      supabase.from('profiles').update({
+        current_xp: updatedData.current_xp,
+        total_workouts: updatedData.total_workouts,
+        streak_days: updatedData.streak_days,
+        stats: updatedData.stats,
+        workout_history: updatedData.workout_history
+      }).eq('id', userData.id),
+      
+      supabase.from('workout_logs').insert([
+        { user_id: userData.id, workout_id: workoutId, date: today }
+      ])
+    ]);
   };
 
-  const resetStats = () => setUserData(initialData);
-
-  const proofMessages = userData.totalWorkouts === 0 
-    ? ["Log a workout to start your journey!"] 
-    : [`Strength: ${userData.stats.strength}%`, `Level ${userData.level} reached`];
-
-  if (isLoading) return null;
-
   return (
-    <AppContext.Provider value={{ userData, workouts, duels, proofMessages, completeWorkout, resetStats }}>
+    <AppContext.Provider value={{ userData, workouts, completeWorkout, isLoading }}>
       {children}
     </AppContext.Provider>
   );

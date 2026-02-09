@@ -6,7 +6,7 @@ import { useApp } from '@/contexts/AppContext';
 
 import { StatBar } from '@/components/StatBar';
 
-import { CheckCircle2, Play, Trophy, Bot, ChevronRight } from 'lucide-react';
+import { Play, Trophy, X } from 'lucide-react';
 
 
 
@@ -17,24 +17,6 @@ export default function WorkoutScreen() {
   const [selectedWorkout, setSelectedWorkout] = useState<any>(null);
 
   const [showCelebration, setShowCelebration] = useState(false);
-
-
-
-  // Safety check: if workouts is undefined (common during loading), show a placeholder
-
-  if (!workouts) {
-
-    return (
-
-      <View style={styles.container}>
-
-        <Text style={styles.loadingText}>Loading training modules...</Text>
-
-      </View>
-
-    );
-
-  }
 
 
 
@@ -58,7 +40,7 @@ export default function WorkoutScreen() {
 
       <View style={styles.content}>
 
-        <Text style={styles.header}>Training Modules</Text>
+        <Text style={styles.header}>Workouts</Text>
 
         
 
@@ -68,13 +50,13 @@ export default function WorkoutScreen() {
 
             key={workout.id} 
 
-            style={styles.workoutCard}
+            style={styles.card} 
 
             onPress={() => setSelectedWorkout(workout)}
 
           >
 
-            <View style={styles.workoutInfo}>
+            <View style={{ flex: 1 }}>
 
               <Text style={styles.workoutName}>{workout.name}</Text>
 
@@ -90,7 +72,7 @@ export default function WorkoutScreen() {
 
 
 
-        {/* Workout Detail Modal */}
+        {/* Details Modal */}
 
         <Modal visible={!!selectedWorkout && !showCelebration} transparent animationType="slide">
 
@@ -100,39 +82,15 @@ export default function WorkoutScreen() {
 
               <Text style={styles.modalTitle}>{selectedWorkout?.name}</Text>
 
-              <Text style={styles.modalSub}>Focus: {selectedWorkout?.muscleGroup}</Text>
-
-              
-
-              <View style={styles.statPreview}>
-
-                <Text style={styles.statLabel}>Current Mastery</Text>
-
-                {/* Fixed: Dynamically get the muscle stat or default to 0 */}
-
-                <StatBar 
-
-                  label={selectedWorkout?.muscleGroup || 'Strength'} 
-
-                  value={userData.muscleGroups[selectedWorkout?.muscleGroup.toLowerCase() as keyof typeof userData.muscleGroups] || 0} 
-
-                />
-
-              </View>
-
-
-
               <TouchableOpacity style={styles.completeBtn} onPress={handleComplete}>
 
-                <Text style={styles.completeBtnText}>Complete Workout</Text>
+                <Text style={styles.btnText}>Finish Workout</Text>
 
               </TouchableOpacity>
 
-              
-
               <TouchableOpacity onPress={() => setSelectedWorkout(null)}>
 
-                <Text style={styles.closeText}>Cancel</Text>
+                <Text style={styles.cancelText}>Close</Text>
 
               </TouchableOpacity>
 
@@ -144,45 +102,29 @@ export default function WorkoutScreen() {
 
 
 
-        {/* Celebration Modal - Fixed the crash here */}
+        {/* Success Modal */}
 
         <Modal visible={showCelebration} transparent animationType="fade">
 
           <View style={styles.modalOverlay}>
 
-            <View style={[styles.modalContent, styles.celebrationContent]}>
+            <View style={[styles.modalContent, { alignItems: 'center' }]}>
 
-              <Trophy size={60} color="#ffd700" />
+              <Trophy size={50} color="#ffd700" />
 
-              <Text style={styles.celebTitle}>Workout Smashed!</Text>
+              <Text style={styles.celebTitle}>Great Job!</Text>
 
-              
-
-              {/* Added safe access ?. to prevent the 'map' / 'undefined' error */}
-
-              <Text style={styles.celebrationXPText}>
-
-                +{selectedWorkout?.xpReward || 0} XP earned
-
-              </Text>
-
-
+              <Text style={styles.xpText}>+{selectedWorkout?.xpReward} XP</Text>
 
               <TouchableOpacity 
 
-                style={styles.celebrationButton}
+                style={styles.closeCeleb} 
 
-                onPress={() => {
-
-                  setShowCelebration(false);
-
-                  setSelectedWorkout(null);
-
-                }}
+                onPress={() => { setShowCelebration(false); setSelectedWorkout(null); }}
 
               >
 
-                <Text style={styles.celebrationButtonText}>Continue Grinding</Text>
+                <Text style={styles.btnText}>Continue</Text>
 
               </TouchableOpacity>
 
@@ -208,62 +150,31 @@ const styles = StyleSheet.create({
 
   content: { padding: 20, paddingTop: 60 },
 
-  header: { fontSize: 28, fontWeight: '800', color: '#fff', marginBottom: 25 },
+  header: { fontSize: 28, fontWeight: '800', color: '#fff', marginBottom: 20 },
 
-  loadingText: { color: '#888', textAlign: 'center', marginTop: 100 },
+  card: { backgroundColor: '#151515', padding: 20, borderRadius: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#222' },
 
-  workoutCard: { 
+  workoutName: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
 
-    backgroundColor: '#151515', 
+  workoutMeta: { color: '#888', fontSize: 12 },
 
-    borderRadius: 16, 
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
 
-    padding: 20, 
+  modalContent: { backgroundColor: '#111', borderRadius: 20, padding: 30, borderWidth: 1, borderColor: '#333' },
 
-    marginBottom: 12, 
+  modalTitle: { color: '#fff', fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
 
-    flexDirection: 'row', 
+  completeBtn: { backgroundColor: '#00ff88', padding: 15, borderRadius: 10, alignItems: 'center' },
 
-    alignItems: 'center',
+  btnText: { color: '#000', fontWeight: 'bold' },
 
-    borderWidth: 1,
+  cancelText: { color: '#888', textAlign: 'center', marginTop: 15 },
 
-    borderColor: '#222'
+  celebTitle: { color: '#fff', fontSize: 24, fontWeight: 'bold', marginTop: 10 },
 
-  },
+  xpText: { color: '#00ff88', fontSize: 18, marginVertical: 10 },
 
-  workoutInfo: { flex: 1 },
-
-  workoutName: { color: '#fff', fontSize: 18, fontWeight: '700' },
-
-  workoutMeta: { color: '#888', fontSize: 14, marginTop: 4 },
-
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
-
-  modalContent: { backgroundColor: '#151515', borderRadius: 24, padding: 30, borderWidth: 1, borderColor: '#333' },
-
-  modalTitle: { color: '#fff', fontSize: 24, fontWeight: '800', textAlign: 'center' },
-
-  modalSub: { color: '#888', textAlign: 'center', marginTop: 8, marginBottom: 20 },
-
-  statPreview: { marginVertical: 20 },
-
-  statLabel: { color: '#aaa', fontSize: 12, marginBottom: 8, textTransform: 'uppercase' },
-
-  completeBtn: { backgroundColor: '#00ff88', padding: 18, borderRadius: 12, alignItems: 'center' },
-
-  completeBtnText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
-
-  closeText: { color: '#888', textAlign: 'center', marginTop: 20 },
-
-  celebrationContent: { alignItems: 'center', backgroundColor: '#000', borderColor: '#00ff88' },
-
-  celebTitle: { color: '#fff', fontSize: 28, fontWeight: '900', marginTop: 20 },
-
-  celebrationXPText: { color: '#00ff88', fontSize: 20, fontWeight: 'bold', marginVertical: 15 },
-
-  celebrationButton: { backgroundColor: '#333', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 30 },
-
-  celebrationButtonText: { color: '#fff', fontWeight: '600' }
+  closeCeleb: { backgroundColor: '#333', padding: 12, borderRadius: 20, width: '100%', alignItems: 'center' }
 
 });
+
