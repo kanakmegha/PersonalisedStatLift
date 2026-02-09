@@ -1,83 +1,143 @@
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { useApp } from '@/contexts/AppContext';
-import { DuelCard } from '@/components/DuelCard';
+
+import { StatBar } from '@/components/StatBar'; // Reuse your StatBar component
+
+import { Bot, Trophy } from 'lucide-react';
+
+
 
 export default function DuelsScreen() {
-  const { duels } = useApp();
+
+  const { duels, userData } = useApp();
+
+
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Duels</Text>
-        <Text style={styles.subtitle}>Friendly challenges with friends</Text>
+
+    <ScrollView style={styles.container}>
+
+      <View style={styles.content}>
+
+        <Text style={styles.header}>AI Active Duels</Text>
+
+        
+
+        {duels.map((duel) => {
+
+          // Calculate your progress relative to the AI's goal
+
+          const myProgress = userData.stats.strength; 
+
+          const isWinning = myProgress >= duel.aiProgress;
+
+
+
+          return (
+
+            <View key={duel.id} style={styles.card}>
+
+              <View style={styles.cardHeader}>
+
+                <Bot color={isWinning ? "#00ff88" : "#888"} size={24} />
+
+                <View style={styles.nameContainer}>
+
+                  <Text style={styles.opponentName}>{duel.opponentName}</Text>
+
+                  <Text style={styles.difficulty}>{duel.difficulty} Difficulty</Text>
+
+                </View>
+
+                <Trophy size={20} color="#ffd700" />
+
+              </View>
+
+
+
+              <Text style={styles.challengeText}>{duel.challenge}</Text>
+
+              
+
+              <View style={styles.statsContainer}>
+
+                <StatBar label="Your Progress" value={myProgress} />
+
+                <View style={styles.aiGoalMarker}>
+
+                  <Text style={styles.goalText}>AI Goal: {duel.aiProgress}%</Text>
+
+                </View>
+
+              </View>
+
+
+
+              {isWinning ? (
+
+                <View style={styles.winBadge}>
+
+                  <Text style={styles.winText}>WINNING</Text>
+
+                </View>
+
+              ) : (
+
+                <Text style={styles.remainText}>
+
+                  Need {duel.aiProgress - myProgress}% more to beat them!
+
+                </Text>
+
+              )}
+
+            </View>
+
+          );
+
+        })}
+
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoText}>
-              Compete on consistency and effort, not weights or physiques. Small
-              groups, big support.
-            </Text>
-          </View>
+    </ScrollView>
 
-          {duels.map((duel) => (
-            <DuelCard
-              key={duel.id}
-              challenge={duel.challenge}
-              opponentName={duel.opponentName}
-              opponentAvatar={duel.opponentAvatar}
-              yourProgress={duel.yourProgress}
-              opponentProgress={duel.opponentProgress}
-              timeRemaining={duel.timeRemaining}
-              goal={duel.goal}
-            />
-          ))}
-        </View>
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </SafeAreaView>
   );
+
 }
 
+
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a0a0a',
-  },
-  header: {
-    padding: 20,
-    paddingBottom: 12,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#888',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 20,
-  },
-  infoCard: {
-    backgroundColor: '#151515',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#222',
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#aaa',
-    lineHeight: 20,
-    textAlign: 'center',
-  },
+
+  container: { flex: 1, backgroundColor: '#0a0a0a' },
+
+  content: { padding: 20, paddingTop: 60 },
+
+  header: { fontSize: 28, fontWeight: '800', color: '#fff', marginBottom: 25 },
+
+  card: { backgroundColor: '#151515', borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#222' },
+
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+
+  nameContainer: { flex: 1, marginLeft: 12 },
+
+  opponentName: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+
+  difficulty: { color: '#888', fontSize: 12 },
+
+  challengeText: { color: '#aaa', fontSize: 14, marginBottom: 20 },
+
+  statsContainer: { marginTop: 10 },
+
+  aiGoalMarker: { marginTop: -10, marginBottom: 15 },
+
+  goalText: { color: '#ff4444', fontSize: 11, fontWeight: 'bold', textAlign: 'right' },
+
+  winBadge: { backgroundColor: '#00ff8822', padding: 8, borderRadius: 8, alignItems: 'center' },
+
+  winText: { color: '#00ff88', fontWeight: 'bold', fontSize: 12 },
+
+  remainText: { color: '#888', fontSize: 12, fontStyle: 'italic', textAlign: 'center' }
+
 });
